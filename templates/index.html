@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentest Findings Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- CKEditor Script -->
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
+    <style>
+        .findings-panel {
+            height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .finding-card {
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .finding-card:hover {
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        .selected {
+            background-color: #e7f3ff;
+        }
+        .finding-details {
+            display: none;
+            padding-top: 10px;
+            margin-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+        .finding-details.show {
+            display: block;
+        }
+        .detail-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .bg-purple {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .ck-editor__editable {
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <h1 class="mb-4">Pentest Findings Manager</h1>
+        <div class="row">
+            <div class="col-6">
+                <div class="findings-panel">
+                    <h3>All Findings</h3>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFindingModal">Add New Finding</button>
+                        <button class="btn btn-danger" id="deleteSelected">Delete Selected</button>
+                        <button class="btn btn-secondary" id="addToSelected">Add to Selected →</button>
+                    </div>
+                    <div id="allFindings"></div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="findings-panel">
+                    <h3>Selected Findings</h3>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-danger" id="removeSelected">← Remove</button>
+                        <button class="btn btn-danger" id="removeAll">Remove All</button>
+                        <button class="btn btn-success" id="exportBtn">Export Selected</button>
+                    </div>
+                    <div id="selectedFindings"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Finding Modal -->
+    <div class="modal fade" id="addFindingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Finding</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="findingForm">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="risk_rating" class="form-label">Risk Rating</label>
+                            <select class="form-control" id="risk_rating" required>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                                <option value="Informational">Informational</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="impact" class="form-label">Impact</label>
+                            <textarea class="form-control" id="impact" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="resolution" class="form-label">Resolution</label>
+                            <textarea class="form-control" id="resolution" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="submitFinding">Save Finding</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Finding Modal -->
+    <div class="modal fade" id="editFindingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Finding</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editFindingForm">
+                        <div class="mb-3">
+                            <label for="editTitle" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="editTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editRiskRating" class="form-label">Risk Rating</label>
+                            <select class="form-control" id="editRiskRating" required>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                                <option value="Informational">Informational</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="editDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editImpact" class="form-label">Impact</label>
+                            <textarea class="form-control" id="editImpact" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editResolution" class="form-label">Resolution</label>
+                            <textarea class="form-control" id="editResolution" rows="3" required></textarea>
+                        </div>
+                        <input type="hidden" id="editFindingId">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveEditedFinding">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+// Store findings data
+let findings = [];
+let selectedFindings = new Set();
+let selectedForExport = new Set();
+let expandedFindings = new Set();
+
+// Load findings when page loads
+document.addEventListener('DOMContentLoaded', loadFindings);
+
+// Load all findings from the server
+async function loadFindings() {
+    try {
+        const response = await fetch('/api/findings');
+        findings = await response.json();
+        
+        // Define severity order
+        const severityOrder = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
+
+        // Sort findings by severity
+        findings.sort((a, b) => 
+            severityOrder.indexOf(a.risk_rating) - severityOrder.indexOf(b.risk_rating)
+        );
+        
+        displayFindings();
+        displaySelectedFindings();
+    } catch (error) {
+        console.error('Error loading findings:', error);
+    }
+}
+
+// Display findings in the all findings panel
+function displayFindings() {
+    const container = document.getElementById('allFindings');
+    container.innerHTML = findings
+        .filter(f => !selectedForExport.has(f.id))
+        .map(finding => `
+            <div class="card finding-card ${selectedFindings.has(finding.id) ? 'selected' : ''}" 
+                 data-id="${finding.id}" onclick="toggleExpand(${finding.id}, event)">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">${finding.title}</h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-${getRiskBadgeColor(finding.risk_rating)} me-2" style="min-width: 90px; text-align: center;">${finding.risk_rating}</span>
+                            <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleFindingSelection(${finding.id}); event.stopPropagation();">Select</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${finding.id}); event.stopPropagation();">Edit</button>
+                        </div>
+                    </div>
+                    <div class="finding-details ${expandedFindings.has(finding.id) ? 'show' : ''}">
+                        <div class="detail-label">Description:</div>
+                        <p class="mb-3">${finding.description}</p>
+                        <div class="detail-label">Impact:</div>
+                        <p class="mb-3">${finding.impact}</p>
+                        <div class="detail-label">Resolution:</div>
+                        <p class="mb-0">${finding.resolution}</p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+}
+
+// Display selected findings
+function displaySelectedFindings() {
+    const container = document.getElementById('selectedFindings');
+    container.innerHTML = findings
+        .filter(f => selectedForExport.has(f.id))
+        .map(finding => {
+            // Load Resources Affected and Evidence from local storage
+            const resourcesAffected = localStorage.getItem(`resources_${finding.id}`) || '';
+            const evidence = localStorage.getItem(`evidence_${finding.id}`) || '';
+
+            return `
+                <div class="card finding-card ${selectedFindings.has(finding.id) ? 'selected' : ''}" 
+                     data-id="${finding.id}" onclick="toggleExpand(${finding.id}, event)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">${finding.title}</h5>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-${getRiskBadgeColor(finding.risk_rating)} me-2" style="min-width: 90px; text-align: center;">${finding.risk_rating}</span>
+                                <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleFindingSelection(${finding.id}); event.stopPropagation();">Select</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${finding.id}); event.stopPropagation();">Edit</button>
+                            </div>
+                        </div>
+                        <div class="finding-details ${expandedFindings.has(finding.id) ? 'show' : ''}">
+                            <div class="detail-label">Description:</div>
+                            <p class="mb-3">${finding.description}</p>
+                            <div class="detail-label">Impact:</div>
+                            <p class="mb-3">${finding.impact}</p>
+                            <div class="detail-label">Resolution:</div>
+                            <p class="mb-0">${finding.resolution}</p>
+                            <div class="detail-label">Resources Affected:</div>
+                            <textarea class="form-control mb-3" id="resources_${finding.id}" rows="2">${resourcesAffected}</textarea>
+                            <div class="detail-label">Evidence and Reproduction Steps:</div>
+                            <textarea class="form-control mb-3" id="evidence_${finding.id}" rows="4">${evidence}</textarea>
+                            <button class="btn btn-sm btn-primary mt-3" onclick="saveAdditionalFields(${finding.id}); event.stopPropagation();">Save</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+}
+
+// Save Resources Affected and Evidence to local storage
+function saveAdditionalFields(id) {
+    // Debug: Check if the function is called
+    console.log('Save button clicked for finding ID:', id);
+
+    // Get the value from the Resources Affected textarea
+    const resources = document.getElementById(`resources_${id}`).value;
+
+    // Debug: Check if the value is retrieved
+    console.log('Resources Affected:', resources);
+
+    // Get the value from the Evidence textarea
+    const evidence = document.getElementById(`evidence_${id}`).value;
+
+    // Debug: Check if the value is retrieved
+    console.log('Evidence and Reproduction Steps:', evidence);
+
+    // Save both fields to local storage
+    localStorage.setItem(`resources_${id}`, resources);
+    localStorage.setItem(`evidence_${id}`, evidence);
+
+    // Debug: Check if the values are saved to local storage
+    console.log('Saved to local storage:', {
+        resources: localStorage.getItem(`resources_${id}`),
+        evidence: localStorage.getItem(`evidence_${id}`)
+    });
+
+    alert('Additional fields saved!');
+}
+
+// Toggle expansion of a finding
+function toggleExpand(id, event) {
+    // Check if the click occurred inside a textarea, input, CKEditor, or CKEditor toolbar
+    if (
+        event.target.tagName === 'TEXTAREA' || 
+        event.target.tagName === 'INPUT' || 
+        event.target.closest('.ck-editor__editable') || // Check if the click is inside CKEditor
+        event.target.closest('.ck-toolbar') // Check if the click is inside CKEditor toolbar
+    ) {
+        return; // Do nothing if the click is inside a textarea, input, CKEditor, or CKEditor toolbar
+    }
+
+    if (expandedFindings.has(id)) {
+        expandedFindings.delete(id);
+    } else {
+        expandedFindings.add(id);
+    }
+    displayFindings();
+    displaySelectedFindings();
+}
+
+// Get bootstrap color class based on risk rating
+function getRiskBadgeColor(risk) {
+    const colors = {
+        'Critical': 'purple',
+        'High': 'danger',
+        'Medium': 'warning',
+        'Low': 'success',
+        'Informational': 'info'
+    };
+    return colors[risk] || 'secondary';
+}
+
+// Toggle selection of a finding
+function toggleFindingSelection(id) {
+    if (selectedFindings.has(id)) {
+        selectedFindings.delete(id);
+    } else {
+        selectedFindings.add(id);
+    }
+    displayFindings();
+    displaySelectedFindings();
+}
+
+// Add selected findings to export list
+document.getElementById('addToSelected').addEventListener('click', () => {
+    selectedFindings.forEach(id => {
+        selectedForExport.add(id);
+    });
+    selectedFindings.clear();
+    displayFindings();
+    displaySelectedFindings();
+});
+
+// Remove findings from export list
+document.getElementById('removeSelected').addEventListener('click', () => {
+    selectedFindings.forEach(id => {
+        selectedForExport.delete(id);
+        // Remove Resources Affected and Evidence from local storage
+        localStorage.removeItem(`resources_${id}`);
+        localStorage.removeItem(`evidence_${id}`);
+    });
+    selectedFindings.clear();
+    displayFindings();
+    displaySelectedFindings();
+});
+
+// Remove all findings from export list
+document.getElementById('removeAll').addEventListener('click', () => {
+    selectedForExport.forEach(id => {
+        // Remove Resources Affected and Evidence from local storage
+        localStorage.removeItem(`resources_${id}`);
+        localStorage.removeItem(`evidence_${id}`);
+    });
+    selectedForExport.clear();
+    displayFindings();
+    displaySelectedFindings();
+});
+
+// Handle form submission for adding a new finding
+document.getElementById('submitFinding').addEventListener('click', async () => {
+    const formData = {
+        title: document.getElementById('title').value,
+        risk_rating: document.getElementById('risk_rating').value,
+        description: document.getElementById('description').value,
+        impact: document.getElementById('impact').value,
+        resolution: document.getElementById('resolution').value
+    };
+
+    try {
+        const response = await fetch('/api/findings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            const newFinding = await response.json();
+            findings.push(newFinding);
+            displayFindings();
+            
+            // Close modal and reset form
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addFindingModal'));
+            modal.hide();
+            document.getElementById('findingForm').reset();
+        }
+    } catch (error) {
+        console.error('Error saving finding:', error);
+    }
+});
+
+// Open the edit modal with the selected finding's data
+function openEditModal(id) {
+    const finding = findings.find(f => f.id === id);
+    if (finding) {
+        document.getElementById('editTitle').value = finding.title;
+        document.getElementById('editRiskRating').value = finding.risk_rating;
+        document.getElementById('editDescription').value = finding.description;
+        document.getElementById('editImpact').value = finding.impact;
+        document.getElementById('editResolution').value = finding.resolution;
+        document.getElementById('editFindingId').value = finding.id;
+
+        const editModal = new bootstrap.Modal(document.getElementById('editFindingModal'));
+        editModal.show();
+    }
+}
+
+// Save the edited finding
+document.getElementById('saveEditedFinding').addEventListener('click', async () => {
+    const formData = {
+        id: document.getElementById('editFindingId').value,
+        title: document.getElementById('editTitle').value,
+        risk_rating: document.getElementById('editRiskRating').value,
+        description: document.getElementById('editDescription').value,
+        impact: document.getElementById('editImpact').value,
+        resolution: document.getElementById('editResolution').value
+    };
+
+    try {
+        const response = await fetch(`/api/findings/${formData.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            const updatedFinding = await response.json();
+            const index = findings.findIndex(f => f.id === updatedFinding.id);
+            if (index !== -1) {
+                findings[index] = updatedFinding;
+            }
+            displayFindings();
+            displaySelectedFindings();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editFindingModal'));
+            modal.hide();
+        }
+    } catch (error) {
+        console.error('Error updating finding:', error);
+    }
+});
+
+// Export selected findings
+document.getElementById('exportBtn').addEventListener('click', async () => {
+    const findingsToExport = Array.from(selectedForExport);
+    if (findingsToExport.length === 0) {
+        alert('Please select findings to export');
+        return;
+    }
+
+    // Prepare data to send to the backend
+    const exportData = {
+        findings: findingsToExport,
+        resources: {},
+        evidence: {}
+    };
+
+    // Add Resources Affected and Evidence for each finding
+    findingsToExport.forEach(id => {
+        exportData.resources[id] = localStorage.getItem(`resources_${id}`) || '';
+        exportData.evidence[id] = localStorage.getItem(`evidence_${id}`) || '';
+    });
+
+    try {
+        const response = await fetch('/api/export', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(exportData)
+        });
+
+        if (response.ok) {
+            // Convert the response to a blob
+            const blob = await response.blob();
+            // Create a URL for the blob
+            const url = window.URL.createObjectURL(blob);
+            // Create a temporary link element
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pentest_findings.docx';
+            // Append to the document and click programmatically
+            document.body.appendChild(a);
+            a.click();
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        console.error('Error exporting findings:', error);
+        alert('Failed to export findings');
+    }
+});
+    </script>
+</body>
+</html>
