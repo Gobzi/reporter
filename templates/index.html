@@ -8,12 +8,27 @@
     <!-- CKEditor Script -->
     <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
     <style>
+        .panel-header {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 1000;
+            padding-bottom: 15px;
+        }
+
+        .findings-list {
+            height: calc(80vh - 100px);  /* Adjust height to account for header */
+            overflow-y: auto;
+        }
+
         .findings-panel {
             height: 80vh;
-            overflow-y: auto;
             border: 1px solid #dee2e6;
             padding: 15px;
             border-radius: 4px;
+            overflow: hidden;  /* Changed from overflow-y: auto */
+            display: flex;
+            flex-direction: column;
         }
         .finding-card {
             margin-bottom: 10px;
@@ -53,74 +68,81 @@
         <h1 class="mb-4">Pentest Findings Manager</h1>
         <div class="row">
             <div class="col-6">
-                <div class="findings-panel">
-                    <h3>All Findings</h3>
-                    <div class="d-flex gap-2 mb-3">
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFindingModal">Add New Finding</button>
-                        <button class="btn btn-danger" id="deleteSelected">Delete Selected</button>
-                        <button class="btn btn-secondary" id="addToSelected">Add to Selected →</button>
-                    </div>
-                    <div id="allFindings"></div>
-                </div>
+    <div class="findings-panel">
+        <div class="panel-header">
+            <h3>All Findings</h3>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFindingModal">Add New Finding</button>
+                <button class="btn btn-danger" id="deleteSelected">Delete Selected</button>
+                <button class="btn btn-secondary" id="addToSelected">Add to Selected →</button>
             </div>
-            <div class="col-6">
-                <div class="findings-panel">
-                    <h3>Selected Findings</h3>
-                    <div class="d-flex gap-2 mb-3">
-                        <button class="btn btn-danger" id="removeSelected">← Remove</button>
-                        <button class="btn btn-danger" id="removeAll">Remove All</button>
-                        <button class="btn btn-success" id="exportBtn">Export Selected</button>
-                    </div>
-                    <div id="selectedFindings"></div>
-                </div>
+        </div>
+        <div class="findings-list" id="allFindings"></div>
+    </div>
+</div>
+<div class="col-6">
+    <div class="findings-panel">
+        <div class="panel-header">
+            <h3>Selected Findings</h3>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-danger" id="removeSelected">← Remove</button>
+                <button class="btn btn-danger" id="removeAll">Remove All</button>
+                <button class="btn btn-success" id="exportBtn">Export Selected</button>
             </div>
+        </div>
+        <div class="findings-list" id="selectedFindings"></div>
+    </div>
+</div>
         </div>
     </div>
 
-    <!-- Add Finding Modal -->
-    <div class="modal fade" id="addFindingModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Finding</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="findingForm">
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="risk_rating" class="form-label">Risk Rating</label>
-                            <select class="form-control" id="risk_rating" required>
-                                <option value="Critical">Critical</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                                <option value="Informational">Informational</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" rows="3" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="impact" class="form-label">Impact</label>
-                            <textarea class="form-control" id="impact" rows="3" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="resolution" class="form-label">Resolution</label>
-                            <textarea class="form-control" id="resolution" rows="3" required></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="submitFinding">Save Finding</button>
-                </div>
+<!-- Add Finding Modal -->
+<div class="modal fade" id="addFindingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Finding</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="findingForm">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="risk_rating" class="form-label">Risk Rating</label>
+                        <select class="form-control" id="risk_rating" required>
+                            <option value="Critical">Critical</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                            <option value="Informational">Informational</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="impact" class="form-label">Impact</label>
+                        <textarea class="form-control" id="impact" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resolution" class="form-label">Resolution</label>
+                        <textarea class="form-control" id="resolution" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <!-- Add Import CSV Button -->
+                <button type="button" class="btn btn-info" id="importJSON">Import JSON</button>
+                <button type="button" class="btn btn-primary" id="submitFinding">Save Finding</button>
             </div>
         </div>
+    </div>
+</div>
     </div>
 
     <!-- Edit Finding Modal -->
@@ -523,6 +545,109 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
         alert('Failed to export findings');
     }
 });
+
+// Handle JSON file import
+document.getElementById('importJSON').addEventListener('click', async () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+
+    fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            try {
+                const text = await file.text();
+                const importedFindings = JSON.parse(text);
+                let successCount = 0;
+
+                for (const finding of importedFindings) {
+                    try {
+                        // Map the fields correctly
+                        const formattedFinding = {
+                            title: finding.Title,
+                            description: finding.Description,
+                            impact: finding.Impact,
+                            resolution: finding.Resolution,
+                            risk_rating: finding.Severity  // Map Severity to risk_rating
+                        };
+
+                        const response = await fetch('/api/findings', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(formattedFinding)
+                        });
+
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            console.error('Failed to add finding:', finding.Title);
+                        }
+                    } catch (error) {
+                        console.error('Error adding finding:', error);
+                    }
+                }
+
+                await loadFindings(); // Reload findings after import
+                alert(`Successfully imported ${successCount} findings`);
+
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addFindingModal'));
+                modal.hide();
+            } catch (error) {
+                console.error('Error parsing JSON:', error);
+                alert('Error importing findings. Please check the file format.');
+            }
+        }
+    });
+
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+});
+
+// Delete selected findings
+document.getElementById('deleteSelected').addEventListener('click', async () => {
+    const findingsToDelete = Array.from(selectedFindings);
+    if (findingsToDelete.length === 0) {
+        alert('Please select findings to delete');
+        return;
+    }
+
+    if (confirm('Are you sure you want to delete the selected findings?')) {
+        try {
+            const response = await fetch('/api/findings/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ findings: findingsToDelete })
+            });
+
+            if (response.ok) {
+                // Remove deleted findings from our local array
+                findings = findings.filter(f => !findingsToDelete.includes(f.id));
+                // Clear selections
+                selectedFindings.clear();
+                // Update display
+                displayFindings();
+                displaySelectedFindings();
+                alert('Findings deleted successfully');
+            } else {
+                throw new Error('Delete failed');
+            }
+        } catch (error) {
+            console.error('Error deleting findings:', error);
+            alert('Failed to delete findings');
+        }
+    }
+});
+
+
+
+
     </script>
 </body>
 </html>
