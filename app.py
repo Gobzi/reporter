@@ -16,6 +16,7 @@ class Finding(db.Model):
     description = db.Column(db.Text, nullable=False)
     impact = db.Column(db.Text, nullable=False)
     resolution = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -26,6 +27,7 @@ class Finding(db.Model):
             'description': self.description,
             'impact': self.impact,
             'resolution': self.resolution,
+            'category': self.category,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
@@ -46,7 +48,8 @@ def add_finding():
         risk_rating=data['risk_rating'],
         description=data['description'],
         impact=data['impact'],
-        resolution=data['resolution']
+        resolution=data['resolution'],
+        category=data.get('category', '')  # Add this line
     )
     db.session.add(new_finding)
     db.session.commit()
@@ -61,6 +64,7 @@ def update_finding(id):
     finding.description = data['description']
     finding.impact = data['impact']
     finding.resolution = data['resolution']
+    finding.category = data.get('category', '')  # Add this line
     db.session.commit()
     return jsonify(finding.to_dict())
 
@@ -82,30 +86,62 @@ def export_findings():
     finding_ids = data.get('findings', [])
     resources = data.get('resources', {})
     evidence = data.get('evidence', {})
+    edited_findings = data.get('edited_findings', {})
 
-    findings = Finding.query.filter(Finding.id.in_(finding_ids)).all()
+    # Get findings from database only for IDs that don't have edited versions
+    db_findings = Finding.query.filter(Finding.id.in_(finding_ids)).all()
+    findings_map = {str(f.id): f for f in db_findings}
     
     # Load template
     doc = DocxTemplate('templates/finding_template.docx')
     
-    # Prepare context with all findings
-    context = {
-        'findings': []
+    # Define severity order
+    severity_order = {
+        'Critical': 0,
+        'High': 1,
+        'Medium': 2,
+        'Low': 3,
+        'Informational': 4
     }
-
-    # Prepare data for each finding
-    for finding in findings:
-        context['findings'].append({
-            'title': finding.title,
-            'severity': finding.risk_rating,  # Pass severity as a string
-            'description': finding.description,
-            'impact': finding.impact,
-            'resolution': finding.resolution,
-            'resources_affected': resources.get(str(finding.id), ''),  # Add Resources Affected
-            'evidence': evidence.get(str(finding.id), '')  # Add Evidence and Reproduction Steps
-        })
     
-    # Render template once with all findings
+    # Prepare all findings data before sorting
+    findings_data = []
+    
+    for finding_id in finding_ids:
+        str_id = str(finding_id)
+        
+        if str_id in edited_findings:
+            finding_data = edited_findings[str_id]
+            findings_data.append({
+                'title': finding_data['title'],
+                'severity': finding_data['risk_rating'],
+                'description': finding_data['description'],
+                'impact': finding_data['impact'],
+                'resolution': finding_data['resolution'],
+                'resources_affected': resources.get(str_id, ''),
+                'evidence': evidence.get(str_id, '')
+            })
+        elif str_id in findings_map:
+            finding = findings_map[str_id]
+            findings_data.append({
+                'title': finding.title,
+                'severity': finding.risk_rating,
+                'description': finding.description,
+                'impact': finding.impact,
+                'resolution': finding.resolution,
+                'resources_affected': resources.get(str_id, ''),
+                'evidence': evidence.get(str_id, '')
+            })
+    
+    # Sort findings by severity
+    findings_data.sort(key=lambda x: severity_order.get(x['severity'], 999))
+    
+    # Prepare context with sorted findings
+    context = {
+        'findings': findings_data
+    }
+    
+    # Render template
     doc.render(context)
     
     # Save to memory buffer
@@ -118,7 +154,10 @@ def export_findings():
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         as_attachment=True,
         download_name='security_findings.docx'
+
     )
+
+
 
 if __name__ == '__main__':
     with app.app_context():
