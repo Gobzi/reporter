@@ -5,147 +5,488 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pentest Findings Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- CKEditor Script -->
     <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
     <style>
-        .panel-header {
-            position: sticky;
-            top: 0;
-            background-color: white;
-            z-index: 1000;
-            padding-bottom: 15px;
-        }
-
-        .findings-list {
-            height: calc(80vh - 100px);  /* Adjust height to account for header */
-            overflow-y: auto;
-        }
-
-        .findings-panel {
-            height: 80vh;
-            border: 1px solid #dee2e6;
-            padding: 15px;
-            border-radius: 4px;
-            overflow: hidden;  /* Changed from overflow-y: auto */
-            display: flex;
-            flex-direction: column;
-        }
-        .finding-card {
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .finding-card:hover {
-            box-shadow: 0 0 5px rgba(0,0,0,0.2);
-        }
-        .selected {
-            background-color: #e7f3ff;
-        }
-        .finding-details {
-            display: none;
-            padding-top: 10px;
-            margin-top: 10px;
-            border-top: 1px solid #dee2e6;
-        }
-        .finding-details.show {
-            display: block;
-        }
-        .detail-label {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .bg-purple {
-            background-color: #6f42c1;
-            color: white;
-        }
-        .ck-editor__editable {
-            min-height: 200px;
-        }
+/* Base styles - keep from original */
+body, html {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+/* Main content positioning - keep from original */
+.main-content {
+    margin-left: 250px;
+    height: 100%;
+    overflow: hidden;
+    padding: 20px;
+}
+.container-fluid {
+    height: 100%;
+}
+/* New styles below */
+.panel-header {
+    position: sticky;
+    top: 0;
+    background-color: white;
+    z-index: 1000;
+    padding: 20px 0 15px 0;
+}
+.panel-header h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0;
+}
+.findings-list {
+    height: calc(80vh - 140px);
+    overflow-y: auto;
+    padding-right: 8px;
+}
+.findings-list::-webkit-scrollbar {
+    width: 8px;
+}
+.findings-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+.findings-list::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+.findings-list::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+.findings-panel {
+    height: 80vh;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.finding-card {
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+.finding-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+.finding-card .card-body {
+    padding: 16px;
+}
+.selected {
+    background-color: #ebf8ff;
+    border-color: #90cdf4;
+}
+.finding-details {
+    display: none;
+    padding-top: 15px;
+    margin-top: 15px;
+    border-top: 1px solid #e2e8f0;
+}
+.finding-details.show {
+    display: block;
+}
+.detail-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #4a5568;
+}
+.sidebar {
+    width: 250px;
+    height: 100%;
+    background-color: #1a202c;
+    color: #a0aec0;
+    padding: 20px 0;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1040;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+.sidebar-logo {
+    padding: 0 24px;
+    margin-bottom: 30px;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.sidebar-menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+    color: #a0aec0;
+}
+.sidebar-menu-item:hover {
+    background-color: #2d3748;
+    color: white;
+}
+.sidebar-menu-item.active,
+.sidebar-menu-item.active:hover {
+    background-color: #2d3748;
+    color: white;
+    font-weight: bold;
+}
+.sidebar-submenu {
+    list-style: none;
+    padding-left: 20px;
+    margin-top: 10px;
+}
+.sidebar-submenu li {
+    margin-bottom: 5px;
+}
+.search-container {
+    padding: 0 20px;
+    margin-bottom: 20px;
+}
+.search-container input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #2d3748;
+    background-color: #2d3748;
+    color: white;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.search-container input:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+.search-container input::placeholder {
+    color: #a0aec0;
+}
+.badge {
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+}
+/* Custom button styles */
+.btn {
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.875rem;
+}
+.btn:hover {
+    transform: translateY(-1px);
+}
+/* Editor styles */
+.ck-editor__editable {
+    min-height: 200px;
+}
+/* Risk rating badge colors */
+.bg-critical {
+    background-color: rgb(104, 54, 154) !important;
+    color: white !important;
+}
+.bg-high {
+    background-color: rgb(234, 51, 35) !important;
+    color: white !important;
+}
+.bg-medium {
+    background-color: rgb(245, 194, 67) !important;
+    color: black !important;
+}
+.bg-low {
+    background-color: rgb(78, 173, 91) !important;
+    color: white !important;
+}
+.bg-informational {
+    background-color: rgb(78, 174, 234) !important;
+    color: white !important;
+}
+.chart-container {
+    padding: 0 20px;
+    margin-bottom: 20px;
+    color: white;
+}
+.chart-title {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: #a0aec0;
+}
+.filter-container {
+    padding: 0 20px;
+    margin-bottom: 20px;
+}
+.filter-title {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: #a0aec0;
+}
+.filter-options .form-check {
+    margin-bottom: 8px;
+}
+.filter-options .form-check-input {
+    background-color: #2d3748;
+    border-color: #4a5568;
+}
+.filter-options .form-check-input:checked {
+    background-color: #4299e1;
+    border-color: #4299e1;
+}
+.filter-options .form-check-label {
+    color: #a0aec0;
+    display: flex;
+    align-items: center;
+}
+.filter-options .badge {
+    margin-left: 8px;
+}
+.tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    min-height: 42px;
+}
+.tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f1f5f9;
+    border-radius: 16px;
+    padding: 4px 12px;
+    font-size: 0.875rem;
+    color: #4a5568;
+    cursor: default;
+}
+.tag .remove-tag {
+    margin-left: 6px;
+    cursor: pointer;
+    color: #718096;
+    font-size: 14px;
+    font-weight: bold;
+}
+.tag .remove-tag:hover {
+    color: #e53e3e;
+}
+.tag-input {
+    border: none;
+    outline: none;
+    padding: 4px;
+    margin: 0;
+    flex: 1;
+    min-width: 120px;
+    background: transparent;
+}
+.tags-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.category-tag {
+    background-color: #f1f5f9;
+    border-radius: 16px;
+    padding: 4px 12px;
+    font-size: 0.875rem;
+    color: #4a5568;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    display: inline-block;
+}
+.category-search input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #2d3748;
+    background-color: #2d3748;
+    color: white;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+.category-search input:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+.category-search input::placeholder {
+    color: #a0aec0;
+}
+.category-filter-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+}
+.category-filter-item .form-check-label {
+    color: #a0aec0;
+    font-size: 0.875rem;
+    margin-left: 8px;
+    cursor: pointer;
+}
+.category-filter-count {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #718096;
+    background: #2d3748;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
     </style>
 </head>
 <body>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            Pentest Manager
+        </div>
+        <div class="search-container">
+            <input type="text" id="findingsSearch" placeholder="Search...">
+        </div>
+<div class="filter-container">
+    <div class="filter-title">Filter by Risk</div>
+    <div class="filter-options">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="filterCritical" checked>
+            <label class="form-check-label" for="filterCritical">
+                <span class="badge bg-critical">Critical</span>
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="filterHigh" checked>
+            <label class="form-check-label" for="filterHigh">
+                <span class="badge bg-high">High</span>
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="filterMedium" checked>
+            <label class="form-check-label" for="filterMedium">
+                <span class="badge bg-medium">Medium</span>
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="filterLow" checked>
+            <label class="form-check-label" for="filterLow">
+                <span class="badge bg-low">Low</span>
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="filterInformational" checked>
+            <label class="form-check-label" for="filterInformational">
+                <span class="badge bg-informational">Informational</span>
+            </label>
+        </div>
+    </div>
+        <div class="filter-container">
+            <div class="filter-title">Filter by Categories</div>
+            <div class="category-search mb-2">
+                <input type="text" class="form-control form-control-sm" id="categorySearch" 
+                       placeholder="Search categories...">
+            </div>
+            <div id="categoryFilters" class="filter-options">
+            </div>
+        </div>
+</div>
+<div class="chart-container">
+    <div class="chart-title">Risk Distribution</div>
+    <div id="riskChart"></div>
+</div>
+    </div>
+<div class="main-content">
     <div class="container-fluid mt-4">
-        <h1 class="mb-4">Pentest Findings Manager</h1>
         <div class="row">
             <div class="col-6">
-    <div class="findings-panel">
-        <div class="panel-header">
-            <h3>All Findings</h3>
-            <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFindingModal">Add New Finding</button>
-                <button class="btn btn-danger" id="deleteSelected">Delete Selected</button>
-                <button class="btn btn-secondary" id="addToSelected">Add to Selected →</button>
+                <div class="findings-panel">
+                    <div class="panel-header">
+                        <h3>Templates</h3>
+                        <div class="mt-3 d-flex gap-2">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFindingModal">Add New Finding</button>
+                        <button class="btn btn-danger" id="deleteSelected">Delete Selected</button>
+                        <button class="btn btn-danger" id="deleteAll">Delete All</button>
+                        <button class="btn btn-secondary" id="addToSelected">Selected Templates to Findings →</button>
+                    </div>
+                    </div>
+                    <div class="findings-list" id="allFindings"></div>
+                </div>
             </div>
-        </div>
-        <div class="findings-list" id="allFindings"></div>
-    </div>
-</div>
-<div class="col-6">
-    <div class="findings-panel">
-        <div class="panel-header">
-            <h3>Selected Findings</h3>
-            <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-danger" id="removeSelected">← Remove</button>
-                <button class="btn btn-danger" id="removeAll">Remove All</button>
-                <button class="btn btn-success" id="exportBtn">Export Selected</button>
-            </div>
-        </div>
-        <div class="findings-list" id="selectedFindings"></div>
-    </div>
-</div>
-        </div>
-    </div>
-
-<!-- Add Finding Modal -->
-<div class="modal fade" id="addFindingModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Finding</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="findingForm">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="title" required>
+            <div class="col-6">
+                <div class="findings-panel">
+                    <div class="panel-header">
+                        <h3>Findings</h3>
+                        <div class="mt-3 d-flex gap-2">
+                            <button class="btn btn-danger" id="removeSelected">← Remove Selected</button>
+                            <button class="btn btn-danger" id="removeAll">Remove All</button>
+                            <button class="btn btn-success" id="exportBtn">Export All</button>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="risk_rating" class="form-label">Risk Rating</label>
-                        <select class="form-control" id="risk_rating" required>
-                            <option value="Critical">Critical</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                            <option value="Informational">Informational</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" rows="3" required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="impact" class="form-label">Impact</label>
-                        <textarea class="form-control" id="impact" rows="3" required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="resolution" class="form-label">Resolution</label>
-                        <textarea class="form-control" id="resolution" rows="3" required></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <!-- Add Import CSV Button -->
-                <button type="button" class="btn btn-info" id="importJSON">Import JSON</button>
-                <button type="button" class="btn btn-primary" id="submitFinding">Save Finding</button>
+                    <div class="findings-list" id="selectedFindings"></div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+    <div class="modal fade" id="addFindingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Finding</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="findingForm">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="risk_rating" class="form-label">Risk Rating</label>
+                            <select class="form-control" id="risk_rating" required>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                                <option value="Informational">Informational</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="impact" class="form-label">Impact</label>
+                            <textarea class="form-control" id="impact" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="resolution" class="form-label">Resolution</label>
+                            <textarea class="form-control" id="resolution" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Categories</label>
+                            <div class="tag-container">
+                                <input type="text" class="tag-input" id="category" placeholder="Type and press Enter to add tags">
+                            </div>
+                            <input type="hidden" id="categoryTags" name="categoryTags">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-info" id="importJSON">Import JSON</button>
+                    <button type="button" class="btn btn-primary" id="submitFinding">Save Finding</button>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Edit Finding Modal -->
     <div class="modal fade" id="editFindingModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -181,6 +522,13 @@
                             <label for="editResolution" class="form-label">Resolution</label>
                             <textarea class="form-control" id="editResolution" rows="3" required></textarea>
                         </div>
+                        <div class="mb-3">
+                            <label for="editCategory" class="form-label">Categories</label>
+                            <div class="tag-container">
+                                <input type="text" class="tag-input" id="editCategory" placeholder="Type and press Enter to add tags">
+                            </div>
+                            <input type="hidden" id="editCategoryTags" name="editCategoryTags">
+                        </div>
                         <input type="hidden" id="editFindingId">
                     </form>
                 </div>
@@ -191,7 +539,26 @@
             </div>
         </div>
     </div>
-
+<div class="modal fade" id="pinModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Enter PIN</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="pinInput">Please enter PIN to confirm deletion:</label>
+                                    <input type="password" class="form-control" id="pinInput">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-danger" id="confirmDeleteAll">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
 // Store findings data
@@ -199,44 +566,116 @@ let findings = [];
 let selectedFindings = new Set();
 let selectedForExport = new Set();
 let expandedFindings = new Set();
-
-// Load findings when page loads
-document.addEventListener('DOMContentLoaded', loadFindings);
-
+let editedFindings = new Map(); // New: Store edited versions of findings
+// New: Load edited findings from localStorage
+function loadEditedFindings() {
+    const stored = localStorage.getItem('editedFindings');
+    if (stored) {
+        editedFindings = new Map(JSON.parse(stored));
+    }
+}
+// New: Save edited findings to localStorage
+function saveEditedFindings() {
+    localStorage.setItem('editedFindings', JSON.stringify(Array.from(editedFindings.entries())));
+}
+// New: Get the correct version of a finding (edited or original)
+function getFinding(id) {
+    const editedVersion = editedFindings.get(id);
+    if (editedVersion) {
+        return editedVersion;
+    }
+    return findings.find(f => f.id === id);
+}
 // Load all findings from the server
 async function loadFindings() {
+    console.log('loadFindings function called');
     try {
+        console.log('Attempting to fetch findings');
         const response = await fetch('/api/findings');
+        console.log('Response received:', response);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         findings = await response.json();
-        
+        console.log('Findings loaded:', findings);
+        // Load selected findings from local storage
+        const storedSelectedFindings = localStorage.getItem('selectedFindings');
+        if (storedSelectedFindings) {
+            selectedForExport = new Set(JSON.parse(storedSelectedFindings));
+        }
         // Define severity order
         const severityOrder = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
-
         // Sort findings by severity
         findings.sort((a, b) => 
             severityOrder.indexOf(a.risk_rating) - severityOrder.indexOf(b.risk_rating)
         );
-        
         displayFindings();
         displaySelectedFindings();
     } catch (error) {
         console.error('Error loading findings:', error);
     }
 }
-
 // Display findings in the all findings panel
 function displayFindings() {
     const container = document.getElementById('allFindings');
+    const searchTerm = document.getElementById('findingsSearch').value.toLowerCase();
+    // Get the state of filter checkboxes
+    const riskFilters = {
+        'Critical': document.getElementById('filterCritical').checked,
+        'High': document.getElementById('filterHigh').checked,
+        'Medium': document.getElementById('filterMedium').checked,
+        'Low': document.getElementById('filterLow').checked,
+        'Informational': document.getElementById('filterInformational').checked
+    };
+    // Get selected categories - exact matches only
+    const selectedCategories = new Set(
+        Array.from(document.querySelectorAll('#categoryFilters .form-check-input:checked'))
+            .map(checkbox => checkbox.getAttribute('data-category'))
+    );
     container.innerHTML = findings
-        .filter(f => !selectedForExport.has(f.id))
+        .filter(f => {
+            // First check if finding is already in selected findings
+            if (selectedForExport.has(f.id)) return false;
+            // Then check if finding's risk rating is filtered
+            if (!riskFilters[f.risk_rating]) return false;
+            // Check category filters - exact match only
+// Check category filters
+            if (selectedCategories.size > 0) {
+                const findingCategories = f.category ? 
+                    f.category.split(',').map(c => c.trim()) : [];
+                // Check if any of the finding's categories are in the selected categories
+                if (!findingCategories.some(cat => selectedCategories.has(cat))) {
+                    return false;
+                }
+            }
+            // Finally check search term
+            if (searchTerm) {
+                const title = f.title.toLowerCase();
+                const description = f.description.toLowerCase();
+                const impact = f.impact.toLowerCase();
+                const resolution = f.resolution.toLowerCase();
+                const category = (f.category || '').toLowerCase();
+                return (
+                    title.includes(searchTerm) || 
+                    description.includes(searchTerm) || 
+                    impact.includes(searchTerm) || 
+                    resolution.includes(searchTerm) ||
+                    category.includes(searchTerm)
+                );
+            }
+            return true;
+        })
         .map(finding => `
             <div class="card finding-card ${selectedFindings.has(finding.id) ? 'selected' : ''}" 
                  data-id="${finding.id}" onclick="toggleExpand(${finding.id}, event)">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">${finding.title}</h5>
                         <div class="d-flex align-items-center">
                             <span class="badge bg-${getRiskBadgeColor(finding.risk_rating)} me-2" style="min-width: 90px; text-align: center;">${finding.risk_rating}</span>
+                            <h5 class="card-title mb-0">${finding.title}</h5>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-sm btn-success me-2" onclick="addToSelected(${finding.id}); event.stopPropagation();">Add →</button>
                             <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleFindingSelection(${finding.id}); event.stopPropagation();">Select</button>
                             <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${finding.id}); event.stopPropagation();">Edit</button>
                         </div>
@@ -247,42 +686,56 @@ function displayFindings() {
                         <div class="detail-label">Impact:</div>
                         <p class="mb-3">${finding.impact}</p>
                         <div class="detail-label">Resolution:</div>
-                        <p class="mb-0">${finding.resolution}</p>
+                        <p class="mb-3">${finding.resolution}</p>
+                        <div class="detail-label">Categories:</div>
+                        <div class="tags-display">
+                            ${(finding.category || '').split(',').filter(tag => tag.trim()).map(tag => 
+                                `<span class="category-tag">${tag.trim()}</span>`
+                            ).join('')}
+                        </div>
                     </div>
                 </div>
             </div>
         `).join('');
 }
-
-// Display selected findings
+// Modified: Display selected findings to use edited versions
 function displaySelectedFindings() {
     const container = document.getElementById('selectedFindings');
     container.innerHTML = findings
         .filter(f => selectedForExport.has(f.id))
         .map(finding => {
-            // Load Resources Affected and Evidence from local storage
+            // Get edited version if it exists
+            const displayFinding = getFinding(finding.id);
             const resourcesAffected = localStorage.getItem(`resources_${finding.id}`) || '';
             const evidence = localStorage.getItem(`evidence_${finding.id}`) || '';
-
             return `
                 <div class="card finding-card ${selectedFindings.has(finding.id) ? 'selected' : ''}" 
                      data-id="${finding.id}" onclick="toggleExpand(${finding.id}, event)">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">${finding.title}</h5>
                             <div class="d-flex align-items-center">
-                                <span class="badge bg-${getRiskBadgeColor(finding.risk_rating)} me-2" style="min-width: 90px; text-align: center;">${finding.risk_rating}</span>
+                                <span class="badge bg-${getRiskBadgeColor(displayFinding.risk_rating)} me-2" style="min-width: 90px; text-align: center;">${displayFinding.risk_rating}</span>
+                                <h5 class="card-title mb-0">${displayFinding.title}</h5>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <button class="btn btn-sm btn-danger me-2" onclick="removeFromSelected(${finding.id}, event);">← Remove</button>
                                 <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleFindingSelection(${finding.id}); event.stopPropagation();">Select</button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${finding.id}); event.stopPropagation();">Edit</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="openSelectedEditModal(${finding.id}); event.stopPropagation();">Edit</button>
                             </div>
                         </div>
                         <div class="finding-details ${expandedFindings.has(finding.id) ? 'show' : ''}">
                             <div class="detail-label">Description:</div>
-                            <p class="mb-3">${finding.description}</p>
+                            <p class="mb-3">${displayFinding.description}</p>
                             <div class="detail-label">Impact:</div>
-                            <p class="mb-3">${finding.impact}</p>
+                            <p class="mb-3">${displayFinding.impact}</p>
                             <div class="detail-label">Resolution:</div>
-                            <p class="mb-0">${finding.resolution}</p>
+                            <p class="mb-3">${displayFinding.resolution}</p>
+                            <div class="detail-label">Categories:</div>
+                            <div class="tags-display">
+                                ${(displayFinding.category || '').split(',').filter(tag => tag.trim()).map(tag => 
+                                    `<span class="category-tag">${tag.trim()}</span>`
+                                ).join('')}
+                            </div>
                             <div class="detail-label">Resources Affected:</div>
                             <textarea class="form-control mb-3" id="resources_${finding.id}" rows="2">${resourcesAffected}</textarea>
                             <div class="detail-label">Evidence and Reproduction Steps:</div>
@@ -293,50 +746,54 @@ function displaySelectedFindings() {
                 </div>
             `;
         }).join('');
+    updateRiskChart();
 }
-
-// Save Resources Affected and Evidence to local storage
-function saveAdditionalFields(id) {
-    // Debug: Check if the function is called
-    console.log('Save button clicked for finding ID:', id);
-
-    // Get the value from the Resources Affected textarea
-    const resources = document.getElementById(`resources_${id}`).value;
-
-    // Debug: Check if the value is retrieved
-    console.log('Resources Affected:', resources);
-
-    // Get the value from the Evidence textarea
-    const evidence = document.getElementById(`evidence_${id}`).value;
-
-    // Debug: Check if the value is retrieved
-    console.log('Evidence and Reproduction Steps:', evidence);
-
-    // Save both fields to local storage
-    localStorage.setItem(`resources_${id}`, resources);
-    localStorage.setItem(`evidence_${id}`, evidence);
-
-    // Debug: Check if the values are saved to local storage
-    console.log('Saved to local storage:', {
-        resources: localStorage.getItem(`resources_${id}`),
-        evidence: localStorage.getItem(`evidence_${id}`)
+function addToSelected(id) {
+    selectedForExport.add(id);
+    localStorage.setItem('selectedFindings', JSON.stringify(Array.from(selectedForExport)));
+    displayFindings();
+    displaySelectedFindings();
+}
+// Modified: Remove from selected to also clear edited version
+function removeFromSelected(id, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    selectedForExport.delete(id);
+    editedFindings.delete(id); // Remove edited version
+    saveEditedFindings(); // Save changes to localStorage
+    // Remove from localStorage
+    localStorage.removeItem(`resources_${id}`);
+    localStorage.removeItem(`evidence_${id}`);
+    // Update selectedFindings in localStorage
+    localStorage.setItem('selectedFindings', JSON.stringify(Array.from(selectedForExport)));
+    displayFindings();
+    displaySelectedFindings();
+}
+// Modified: Remove All button handler
+document.getElementById('removeAll').addEventListener('click', () => {
+    selectedForExport.forEach(id => {
+        localStorage.removeItem(`resources_${id}`);
+        localStorage.removeItem(`evidence_${id}`);
     });
-
-    alert('Additional fields saved!');
-}
-
-// Toggle expansion of a finding
+    selectedForExport.clear();
+    editedFindings.clear();
+    notifyFindingsUpdated();
+    saveEditedFindings();
+    // Clear selected findings in localStorage
+    localStorage.removeItem('selectedFindings');
+    displayFindings();
+    displaySelectedFindings();
+});
 function toggleExpand(id, event) {
-    // Check if the click occurred inside a textarea, input, CKEditor, or CKEditor toolbar
     if (
         event.target.tagName === 'TEXTAREA' || 
         event.target.tagName === 'INPUT' || 
-        event.target.closest('.ck-editor__editable') || // Check if the click is inside CKEditor
-        event.target.closest('.ck-toolbar') // Check if the click is inside CKEditor toolbar
+        event.target.closest('.ck-editor__editable') || 
+        event.target.closest('.ck-toolbar')
     ) {
-        return; // Do nothing if the click is inside a textarea, input, CKEditor, or CKEditor toolbar
+        return;
     }
-
     if (expandedFindings.has(id)) {
         expandedFindings.delete(id);
     } else {
@@ -345,20 +802,16 @@ function toggleExpand(id, event) {
     displayFindings();
     displaySelectedFindings();
 }
-
-// Get bootstrap color class based on risk rating
 function getRiskBadgeColor(risk) {
     const colors = {
-        'Critical': 'purple',
-        'High': 'danger',
-        'Medium': 'warning',
-        'Low': 'success',
-        'Informational': 'info'
+        'Critical': 'critical',
+        'High': 'high',
+        'Medium': 'medium',
+        'Low': 'low',
+        'Informational': 'informational'
     };
     return colors[risk] || 'secondary';
 }
-
-// Toggle selection of a finding
 function toggleFindingSelection(id) {
     if (selectedFindings.has(id)) {
         selectedFindings.delete(id);
@@ -368,8 +821,6 @@ function toggleFindingSelection(id) {
     displayFindings();
     displaySelectedFindings();
 }
-
-// Add selected findings to export list
 document.getElementById('addToSelected').addEventListener('click', () => {
     selectedFindings.forEach(id => {
         selectedForExport.add(id);
@@ -378,32 +829,20 @@ document.getElementById('addToSelected').addEventListener('click', () => {
     displayFindings();
     displaySelectedFindings();
 });
-
-// Remove findings from export list
 document.getElementById('removeSelected').addEventListener('click', () => {
     selectedFindings.forEach(id => {
         selectedForExport.delete(id);
-        // Remove Resources Affected and Evidence from local storage
+        editedFindings.delete(id);
         localStorage.removeItem(`resources_${id}`);
         localStorage.removeItem(`evidence_${id}`);
     });
+    saveEditedFindings();
+    // Update selectedFindings in localStorage
+    localStorage.setItem('selectedFindings', JSON.stringify(Array.from(selectedForExport)));
     selectedFindings.clear();
     displayFindings();
     displaySelectedFindings();
 });
-
-// Remove all findings from export list
-document.getElementById('removeAll').addEventListener('click', () => {
-    selectedForExport.forEach(id => {
-        // Remove Resources Affected and Evidence from local storage
-        localStorage.removeItem(`resources_${id}`);
-        localStorage.removeItem(`evidence_${id}`);
-    });
-    selectedForExport.clear();
-    displayFindings();
-    displaySelectedFindings();
-});
-
 // Handle form submission for adding a new finding
 document.getElementById('submitFinding').addEventListener('click', async () => {
     const formData = {
@@ -411,9 +850,9 @@ document.getElementById('submitFinding').addEventListener('click', async () => {
         risk_rating: document.getElementById('risk_rating').value,
         description: document.getElementById('description').value,
         impact: document.getElementById('impact').value,
-        resolution: document.getElementById('resolution').value
+        resolution: document.getElementById('resolution').value,
+        category: document.getElementById('categoryTags').value
     };
-
     try {
         const response = await fetch('/api/findings', {
             method: 'POST',
@@ -422,13 +861,11 @@ document.getElementById('submitFinding').addEventListener('click', async () => {
             },
             body: JSON.stringify(formData)
         });
-
         if (response.ok) {
             const newFinding = await response.json();
             findings.push(newFinding);
+            notifyFindingsUpdated();
             displayFindings();
-            
-            // Close modal and reset form
             const modal = bootstrap.Modal.getInstance(document.getElementById('addFindingModal'));
             modal.hide();
             document.getElementById('findingForm').reset();
@@ -437,8 +874,7 @@ document.getElementById('submitFinding').addEventListener('click', async () => {
         console.error('Error saving finding:', error);
     }
 });
-
-// Open the edit modal with the selected finding's data
+// Original edit modal for database findings
 function openEditModal(id) {
     const finding = findings.find(f => f.id === id);
     if (finding) {
@@ -448,23 +884,47 @@ function openEditModal(id) {
         document.getElementById('editImpact').value = finding.impact;
         document.getElementById('editResolution').value = finding.resolution;
         document.getElementById('editFindingId').value = finding.id;
-
+        // Set tags
+        if (window.editFindingTags) {
+            window.editFindingTags.setTags(finding.category ? finding.category.split(',').map(tag => tag.trim()) : []);
+        }
+        const saveButton = document.getElementById('saveEditedFinding');
+        saveButton.onclick = () => saveEditedFinding();
         const editModal = new bootstrap.Modal(document.getElementById('editFindingModal'));
         editModal.show();
     }
 }
-
-// Save the edited finding
-document.getElementById('saveEditedFinding').addEventListener('click', async () => {
+// New: Edit modal for selected findings
+function openSelectedEditModal(id) {
+    const finding = getFinding(id);
+    if (finding) {
+        document.getElementById('editTitle').value = finding.title;
+        document.getElementById('editRiskRating').value = finding.risk_rating;
+        document.getElementById('editDescription').value = finding.description;
+        document.getElementById('editImpact').value = finding.impact;
+        document.getElementById('editResolution').value = finding.resolution;
+        document.getElementById('editFindingId').value = finding.id;
+        // Set tags
+        if (window.editFindingTags) {
+            window.editFindingTags.setTags(finding.category ? finding.category.split(',').map(tag => tag.trim()) : []);
+        }
+        const saveButton = document.getElementById('saveEditedFinding');
+        saveButton.onclick = () => saveSelectedFinding();
+        const editModal = new bootstrap.Modal(document.getElementById('editFindingModal'));
+        editModal.show();
+    }
+}
+// Original save function for database findings
+async function saveEditedFinding() {
     const formData = {
         id: document.getElementById('editFindingId').value,
         title: document.getElementById('editTitle').value,
         risk_rating: document.getElementById('editRiskRating').value,
         description: document.getElementById('editDescription').value,
         impact: document.getElementById('editImpact').value,
-        resolution: document.getElementById('editResolution').value
+        resolution: document.getElementById('editResolution').value,
+        category: document.getElementById('editCategoryTags').value  // Changed from editCategory to editCategoryTags
     };
-
     try {
         const response = await fetch(`/api/findings/${formData.id}`, {
             method: 'PUT',
@@ -473,46 +933,65 @@ document.getElementById('saveEditedFinding').addEventListener('click', async () 
             },
             body: JSON.stringify(formData)
         });
-
         if (response.ok) {
             const updatedFinding = await response.json();
             const index = findings.findIndex(f => f.id === updatedFinding.id);
             if (index !== -1) {
                 findings[index] = updatedFinding;
             }
+            notifyFindingsUpdated();
             displayFindings();
             displaySelectedFindings();
-            
-            // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('editFindingModal'));
             modal.hide();
         }
     } catch (error) {
         console.error('Error updating finding:', error);
     }
-});
-
-// Export selected findings
+}
+// New: Save function for selected findings
+function saveSelectedFinding() {
+    const id = document.getElementById('editFindingId').value;
+    const editedFinding = {
+        id: parseInt(id),
+        title: document.getElementById('editTitle').value,
+        risk_rating: document.getElementById('editRiskRating').value,
+        description: document.getElementById('editDescription').value,
+        impact: document.getElementById('editImpact').value,
+        resolution: document.getElementById('editResolution').value,
+        category: document.getElementById('editCategoryTags').value,  // Changed from editCategory to editCategoryTags
+        created_at: getFinding(parseInt(id)).created_at
+    };
+    editedFindings.set(parseInt(id), editedFinding);
+    saveEditedFindings();
+    displaySelectedFindings();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editFindingModal'));
+    modal.hide();
+}
 document.getElementById('exportBtn').addEventListener('click', async () => {
     const findingsToExport = Array.from(selectedForExport);
     if (findingsToExport.length === 0) {
         alert('Please select findings to export');
         return;
     }
-
     // Prepare data to send to the backend
     const exportData = {
         findings: findingsToExport,
         resources: {},
-        evidence: {}
+        evidence: {},
+        edited_findings: {}  // Add container for edited findings
     };
-
-    // Add Resources Affected and Evidence for each finding
+    // Add Resources Affected, Evidence, and edited findings for each finding
     findingsToExport.forEach(id => {
-        exportData.resources[id] = localStorage.getItem(`resources_${id}`) || '';
-        exportData.evidence[id] = localStorage.getItem(`evidence_${id}`) || '';
+        const strId = id.toString();
+        exportData.resources[strId] = localStorage.getItem(`resources_${id}`) || '';
+        exportData.evidence[strId] = localStorage.getItem(`evidence_${id}`) || '';
+        // If there's an edited version, add it to edited_findings
+        const editedVersion = editedFindings.get(id);
+        if (editedVersion) {
+            exportData.edited_findings[strId] = editedVersion;
+        }
     });
-
     try {
         const response = await fetch('/api/export', {
             method: 'POST',
@@ -521,20 +1000,14 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
             },
             body: JSON.stringify(exportData)
         });
-
         if (response.ok) {
-            // Convert the response to a blob
             const blob = await response.blob();
-            // Create a URL for the blob
             const url = window.URL.createObjectURL(blob);
-            // Create a temporary link element
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'pentest_findings.docx';
-            // Append to the document and click programmatically
+            a.download = 'security_findings.docx';
             document.body.appendChild(a);
             a.click();
-            // Clean up
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } else {
@@ -545,14 +1018,12 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
         alert('Failed to export findings');
     }
 });
-
 // Handle JSON file import
 document.getElementById('importJSON').addEventListener('click', async () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.json';
     fileInput.style.display = 'none';
-
     fileInput.addEventListener('change', async (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -560,7 +1031,6 @@ document.getElementById('importJSON').addEventListener('click', async () => {
                 const text = await file.text();
                 const importedFindings = JSON.parse(text);
                 let successCount = 0;
-
                 for (const finding of importedFindings) {
                     try {
                         // Map the fields correctly
@@ -569,9 +1039,9 @@ document.getElementById('importJSON').addEventListener('click', async () => {
                             description: finding.Description,
                             impact: finding.Impact,
                             resolution: finding.Resolution,
-                            risk_rating: finding.Severity  // Map Severity to risk_rating
+                            risk_rating: finding.Severity,  // Map Severity to risk_rating
+                            category: finding.Category || ''  // Add this line
                         };
-
                         const response = await fetch('/api/findings', {
                             method: 'POST',
                             headers: {
@@ -579,7 +1049,6 @@ document.getElementById('importJSON').addEventListener('click', async () => {
                             },
                             body: JSON.stringify(formattedFinding)
                         });
-
                         if (response.ok) {
                             successCount++;
                         } else {
@@ -589,11 +1058,8 @@ document.getElementById('importJSON').addEventListener('click', async () => {
                         console.error('Error adding finding:', error);
                     }
                 }
-
-                await loadFindings(); // Reload findings after import
+                await loadFindings();
                 alert(`Successfully imported ${successCount} findings`);
-
-                // Close modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addFindingModal'));
                 modal.hide();
             } catch (error) {
@@ -602,12 +1068,10 @@ document.getElementById('importJSON').addEventListener('click', async () => {
             }
         }
     });
-
     document.body.appendChild(fileInput);
     fileInput.click();
     document.body.removeChild(fileInput);
 });
-
 // Delete selected findings
 document.getElementById('deleteSelected').addEventListener('click', async () => {
     const findingsToDelete = Array.from(selectedFindings);
@@ -615,7 +1079,6 @@ document.getElementById('deleteSelected').addEventListener('click', async () => 
         alert('Please select findings to delete');
         return;
     }
-
     if (confirm('Are you sure you want to delete the selected findings?')) {
         try {
             const response = await fetch('/api/findings/delete', {
@@ -625,13 +1088,10 @@ document.getElementById('deleteSelected').addEventListener('click', async () => 
                 },
                 body: JSON.stringify({ findings: findingsToDelete })
             });
-
             if (response.ok) {
-                // Remove deleted findings from our local array
                 findings = findings.filter(f => !findingsToDelete.includes(f.id));
-                // Clear selections
                 selectedFindings.clear();
-                // Update display
+                notifyFindingsUpdated();
                 displayFindings();
                 displaySelectedFindings();
                 alert('Findings deleted successfully');
@@ -644,10 +1104,339 @@ document.getElementById('deleteSelected').addEventListener('click', async () => 
         }
     }
 });
-
-
-
-
+function searchFindings() {
+    displayFindings();
+}
+document.addEventListener('DOMContentLoaded', () => {
+    // Load findings and initialize
+    loadFindings();
+    loadEditedFindings();
+    updateCategoryFilters();
+    // Initialize tag inputs
+    const addTagInput = document.getElementById('category');
+    const addTagContainer = addTagInput.closest('.tag-container');
+    const addHiddenInput = document.getElementById('categoryTags');
+    window.addFindingTags = initializeTagInput(addTagInput, addTagContainer, addHiddenInput);
+    const editTagInput = document.getElementById('editCategory');
+    const editTagContainer = editTagInput.closest('.tag-container');
+    const editHiddenInput = document.getElementById('editCategoryTags');
+    window.editFindingTags = initializeTagInput(editTagInput, editTagContainer, editHiddenInput);
+    // Add search input listeners
+    const searchInput = document.getElementById('findingsSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', searchFindings);
+    }
+    // Add category search listener
+    const categorySearch = document.getElementById('categorySearch');
+    if (categorySearch) {
+        categorySearch.addEventListener('input', updateCategoryFilters);
+    }
+    // Add risk filter listeners
+    const filterIds = ['filterCritical', 'filterHigh', 'filterMedium', 'filterLow', 'filterInformational'];
+    filterIds.forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+            checkbox.addEventListener('change', displayFindings);
+        }
+    });
+    // Add findings updated listener
+    document.addEventListener('findingsUpdated', updateCategoryFilters);
+});
+// Save additional fields (Resources Affected and Evidence)
+function saveAdditionalFields(id) {
+    console.log('Save button clicked for finding ID:', id);
+    const resources = document.getElementById(`resources_${id}`).value;
+    console.log('Resources Affected:', resources);
+    const evidence = document.getElementById(`evidence_${id}`).value;
+    console.log('Evidence and Reproduction Steps:', evidence);
+    localStorage.setItem(`resources_${id}`, resources);
+    localStorage.setItem(`evidence_${id}`, evidence);
+    console.log('Saved to local storage:', {
+        resources: localStorage.getItem(`resources_${id}`),
+        evidence: localStorage.getItem(`evidence_${id}`)
+    });
+    alert('Additional fields saved!');
+}
+function calculateRiskDistribution() {
+    const distribution = {
+        'Critical': 0,
+        'High': 0,
+        'Medium': 0,
+        'Low': 0,
+        'Informational': 0
+    };
+    // Count findings for each risk level
+    Array.from(selectedForExport).forEach(id => {
+        const finding = getFinding(id);
+        if (finding) {
+            distribution[finding.risk_rating]++;
+        }
+    });
+    return distribution;
+}
+function updateRiskChart() {
+    const distribution = calculateRiskDistribution();
+    const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+    if (total === 0) {
+        document.getElementById('riskChart').innerHTML = '';
+        return;
+    }
+    const radius = 80;
+    let currentAngle = 0; // Start at 0 degrees (right side)
+    const paths = [];
+    const labels = [];
+    const colors = {
+        'Critical': 'rgb(104, 54, 154)',
+        'High': 'rgb(234, 51, 35)',
+        'Medium': 'rgb(245, 194, 67)',
+        'Low': 'rgb(78, 173, 91)',
+        'Informational': 'rgb(78, 174, 234)'
+    };
+    Object.entries(distribution).forEach(([risk, count]) => {
+        if (count === 0) return;
+        const percentage = (count / total);
+        const angle = percentage * 180; // Half circle = 180 degrees
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + angle;
+        const midAngle = (startAngle + endAngle) / 2;
+        // Calculate path coordinates
+        const startX = radius * Math.cos((startAngle * Math.PI) / 180);
+        const startY = radius * Math.sin((startAngle * Math.PI) / 180);
+        const endX = radius * Math.cos((endAngle * Math.PI) / 180);
+        const endY = radius * Math.sin((endAngle * Math.PI) / 180);
+        // Create SVG path for the arc
+        const largeArcFlag = angle > 180 ? 1 : 0;
+        const path = `
+            <path 
+                d="M ${startX + 100} ${-startY + 100}
+                   A ${radius} ${radius} 0 ${largeArcFlag} 0 ${endX + 100} ${-endY + 100}
+                   L 100 100"
+                fill="${colors[risk]}"
+            >
+                <title>${risk}: ${Math.round(percentage * 100)}%</title>
+            </path>
+        `;
+        paths.push(path);
+        // Calculate label position
+        const labelRadius = radius * 0.7; // Position label at 70% of the radius
+        const labelX = labelRadius * Math.cos((midAngle * Math.PI) / 180);
+        const labelY = labelRadius * Math.sin((midAngle * Math.PI) / 180);
+        // Create text label
+        const label = `
+            <text 
+                x="${labelX + 100}" 
+                y="${-labelY + 100}" 
+                fill="white"
+                font-size="12"
+                font-weight="bold"
+                text-anchor="middle"
+                dominant-baseline="middle"
+            >
+                ${Math.round(percentage * 100)}%
+            </text>
+        `;
+        labels.push(label);
+        currentAngle += angle;
+    });
+    // Create SVG with paths and labels
+    const svg = `
+        <svg viewBox="0 0 200 120" width="100%" height="120">
+            ${paths.join('')}
+            ${labels.join('')}
+        </svg>
+    `;
+    document.getElementById('riskChart').innerHTML = svg;
+}
+// Add this with your other event listeners
+document.getElementById('deleteAll').addEventListener('click', () => {
+    // Show PIN modal
+    const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
+    pinModal.show();
+});
+document.getElementById('confirmDeleteAll').addEventListener('click', async () => {
+    const pin = document.getElementById('pinInput').value;
+    if (pin !== '12345') {
+        alert('Incorrect PIN');
+        return;
+    }
+    if (confirm('Are you sure you want to delete ALL findings? This cannot be undone.')) {
+        try {
+            // Get all finding IDs
+            const allIds = findings.map(f => f.id);
+            const response = await fetch('/api/findings/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ findings: allIds })
+            });
+            if (response.ok) {
+                // Clear all data
+                findings = [];
+                selectedFindings.clear();
+                selectedForExport.clear();
+                editedFindings.clear();
+                saveEditedFindings();
+                localStorage.removeItem('selectedFindings');
+                // Clear displays
+                displayFindings();
+                displaySelectedFindings();
+                // Close modal and reset PIN input
+                const pinModal = bootstrap.Modal.getInstance(document.getElementById('pinModal'));
+                pinModal.hide();
+                document.getElementById('pinInput').value = '';
+                alert('All findings deleted successfully');
+            } else {
+                throw new Error('Delete failed');
+            }
+        } catch (error) {
+            console.error('Error deleting findings:', error);
+            alert('Failed to delete findings');
+        }
+    }
+});
+// Add this to clear PIN when modal is hidden
+document.getElementById('pinModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('pinInput').value = '';
+});
+function initializeTagInput(inputElement, containerElement, hiddenInput) {
+    const tags = new Set();
+    function addTag(tag) {
+        tag = tag.trim();
+        if (tag && !tags.has(tag)) {
+            tags.add(tag);
+            const tagElement = document.createElement('span');
+            tagElement.className = 'tag';
+            tagElement.innerHTML = `
+                ${tag}
+                <span class="remove-tag" data-tag="${tag}">&times;</span>
+            `;
+            containerElement.insertBefore(tagElement, inputElement);
+            updateHiddenInput();
+        }
+        inputElement.value = '';
+    }
+    function removeTag(tag) {
+        tags.delete(tag);
+        const tagElements = containerElement.querySelectorAll('.tag');
+        tagElements.forEach(el => {
+            if (el.textContent.trim().replace('×', '').trim() === tag) {
+                el.remove();
+            }
+        });
+        updateHiddenInput();
+    }
+    function updateHiddenInput() {
+        hiddenInput.value = Array.from(tags).join(',');
+    }
+    // Event Listeners
+    inputElement.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            if (inputElement.value.trim()) {
+                addTag(inputElement.value);
+            }
+        }
+    });
+    containerElement.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-tag')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const tag = e.target.getAttribute('data-tag');
+            removeTag(tag);
+        }
+    });
+    // Add blur event to add tags when focus is lost
+    inputElement.addEventListener('blur', () => {
+        if (inputElement.value.trim()) {
+            addTag(inputElement.value);
+        }
+    });
+    return {
+        addTag,
+        removeTag,
+        getTags: () => Array.from(tags),
+        setTags: (tagArray) => {
+            tags.clear();
+            containerElement.querySelectorAll('.tag').forEach(el => el.remove());
+            if (tagArray && tagArray.length > 0) {
+                tagArray.forEach(tag => addTag(tag));
+            }
+        }
+    };
+}
+// Add these functions to your JavaScript
+// Function to get all unique categories from findings
+function getAllCategories() {
+    const categories = new Set();
+    findings.forEach(finding => {
+        if (finding.category) {
+            // Split categories by comma and add each one separately
+            finding.category.split(',').forEach(cat => {
+                const trimmedCat = cat.trim();
+                if (trimmedCat) {
+                    categories.add(trimmedCat);
+                }
+            });
+        }
+    });
+    return Array.from(categories).sort();
+}
+// Function to update category filters
+function updateCategoryFilters() {
+    const container = document.getElementById('categoryFilters');
+    const categories = getAllCategories();
+    const searchTerm = document.getElementById('categorySearch').value.toLowerCase();
+    // Get counts for each individual category
+    const categoryCounts = {};
+    findings.forEach(finding => {
+        if (finding.category) {
+            finding.category.split(',').forEach(cat => {
+                const trimmedCat = cat.trim();
+                if (trimmedCat) {
+                    categoryCounts[trimmedCat] = (categoryCounts[trimmedCat] || 0) + 1;
+                }
+            });
+        }
+    });
+    // Get the currently checked categories
+    const checkedCategories = new Set(
+        Array.from(container.querySelectorAll('.form-check-input:checked'))
+            .map(checkbox => checkbox.getAttribute('data-category'))
+    );
+    // Filter categories based on search and checked state
+    const filteredCategories = categories.filter(cat => 
+        (searchTerm && cat.toLowerCase().includes(searchTerm)) || checkedCategories.has(cat)
+    );
+    // Generate HTML for category filters
+    container.innerHTML = filteredCategories.map(category => `
+        <div class="category-filter-item">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" 
+                       id="filterCategory_${category.replace(/\s+/g, '_')}" 
+                       data-category="${category}"
+                       ${checkedCategories.has(category) ? 'checked' : ''}>
+                <label class="form-check-label" for="filterCategory_${category.replace(/\s+/g, '_')}">
+                    ${category}
+                </label>
+            </div>
+            <span class="category-filter-count">${categoryCounts[category] || 0}</span>
+        </div>
+    `).join('');
+    // Add event listeners to new checkboxes
+    container.querySelectorAll('.form-check-input').forEach(checkbox => {
+        checkbox.addEventListener('change', (event) => {
+            if (!event.target.checked) {
+                // If a checkbox is unchecked, remove it from the list
+                event.target.closest('.category-filter-item').remove();
+            }
+            displayFindings();
+        });
+    });
+}
+function notifyFindingsUpdated() {
+    document.dispatchEvent(new Event('findingsUpdated'));
+}
     </script>
 </body>
 </html>
