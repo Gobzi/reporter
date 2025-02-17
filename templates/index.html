@@ -701,8 +701,16 @@ function displayFindings() {
 // Modified: Display selected findings to use edited versions
 function displaySelectedFindings() {
     const container = document.getElementById('selectedFindings');
-    container.innerHTML = findings
-        .filter(f => selectedForExport.has(f.id))
+    const selectedFindingsList = findings.filter(f => selectedForExport.has(f.id));
+    
+    // Check if there are no selected findings
+    if (selectedFindingsList.length === 0) {
+        console.log('No selected findings to display');
+        container.innerHTML = '<div class="alert alert-info">No findings selected</div>';
+        return;
+    }
+
+    container.innerHTML = selectedFindingsList
         .map(finding => {
             // Get edited version if it exists
             const displayFinding = getFinding(finding.id);
