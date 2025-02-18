@@ -1,13 +1,48 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
 from docxtpl import DocxTemplate, RichText
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
+from functools import wraps
+from secrets import token_urlsafe
+import os
 import io
 
+# Initialize Flask app
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///findings.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.urandom(24)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 db = SQLAlchemy(app)
+
+# Models
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    role = db.Column(db.String(20), default='user')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    reset_token_expires = db.Column(db.DateTime, nullable=True)
+    keyword1 = db.Column(db.String(100), nullable=True)
+    keyword2 = db.Column(db.String(100), nullable=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def set_keywords(self, keyword1, keyword2):
+        self.keyword1 = generate_password_hash(keyword1)
+        self.keyword2 = generate_password_hash(keyword2)
+
+    def check_keywords(self, keyword1, keyword2):
+        return (check_password_hash(self.keyword1, keyword1) and 
+                check_password_hash(self.keyword2, keyword2))
 
 class Finding(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -31,9 +66,138 @@ class Finding(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
+# Helper Functions
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_role' not in session or session['user_role'] != 'admin':
+            return jsonify({'error': 'Admin privileges required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def init_db():
+    with app.app_context():
+        db.create_all()
+        
+        # Create default admin user if it doesn't exist
+        admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                role='admin'
+            )
+            admin.set_password('change_me')
+            admin.set_keywords('security', 'pentest')
+            db.session.add(admin)
+            db.session.commit()
+            print("Default admin user created. Please change the password immediately.")
+
+# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    if 'user_id' in session:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'username': session.get('username'),
+                'role': session.get('role')
+            }
+        })
+    return jsonify({'authenticated': False}), 401
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(username=data['username']).first()
+    
+    if user and user.check_password(data['password']):
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        session.permanent = True
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['user_role'] = user.role
+        
+        return jsonify({
+            'message': 'Login successful',
+            'user': {
+                'username': user.username,
+                'role': user.role
+            }
+        })
+    
+    return jsonify({'error': 'Invalid username or password'}), 401
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'message': 'Logout successful'})
+
+@app.route('/api/verify-keywords', methods=['POST'])
+def verify_keywords():
+    data = request.json
+    username = data.get('username')
+    keyword1 = data.get('keyword1')
+    keyword2 = data.get('keyword2')
+    
+    user = User.query.filter_by(username=username).first()
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    if user.check_keywords(keyword1, keyword2):
+        reset_token = token_urlsafe(32)
+        user.reset_token = reset_token
+        user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
+        
+        try:
+            db.session.commit()
+            print("\n==================================")
+            print(f"RESET TOKEN: {reset_token}")
+            print("==================================\n")
+            return jsonify({
+                'message': 'Keywords verified successfully',
+                'show_reset': True,
+                'reset_token': reset_token  # Also send it in response
+            }), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': 'Database error'}), 500
+    
+    return jsonify({'error': 'Invalid keywords'}), 401
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    if not token or not new_password:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    user = User.query.filter_by(reset_token=token).first()
+    
+    if not user:
+        return jsonify({'error': 'Invalid token'}), 400
+        
+    if not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        return jsonify({'error': 'Token has expired'}), 400
+    
+    try:
+        user.set_password(new_password)
+        user.reset_token = None
+        user.reset_token_expires = None
+        db.session.commit()
+        return jsonify({'message': 'Password reset successful'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to reset password'}), 500
 
 @app.route('/api/findings', methods=['GET'])
 def get_findings():
@@ -49,7 +213,7 @@ def add_finding():
         description=data['description'],
         impact=data['impact'],
         resolution=data['resolution'],
-        category=data.get('category', '')  # Add this line
+        category=data.get('category', '')
     )
     db.session.add(new_finding)
     db.session.commit()
@@ -64,20 +228,15 @@ def update_finding(id):
     finding.description = data['description']
     finding.impact = data['impact']
     finding.resolution = data['resolution']
-    finding.category = data.get('category', '')  # Add this line
+    finding.category = data.get('category', '')
     db.session.commit()
     return jsonify(finding.to_dict())
 
-
 @app.route('/api/findings/delete', methods=['POST'])
 def delete_findings():
-    # Get the list of finding IDs to delete
     finding_ids = request.json.get('findings', [])
-    
-    # Delete findings from the database
     Finding.query.filter(Finding.id.in_(finding_ids)).delete(synchronize_session=False)
     db.session.commit()
-    
     return jsonify({'message': 'Findings deleted successfully'}), 200
 
 @app.route('/api/export', methods=['POST'])
@@ -88,14 +247,11 @@ def export_findings():
     evidence = data.get('evidence', {})
     edited_findings = data.get('edited_findings', {})
 
-    # Get findings from database only for IDs that don't have edited versions
     db_findings = Finding.query.filter(Finding.id.in_(finding_ids)).all()
     findings_map = {str(f.id): f for f in db_findings}
     
-    # Load template
     doc = DocxTemplate('templates/finding_template.docx')
     
-    # Define severity order
     severity_order = {
         'Critical': 0,
         'High': 1,
@@ -104,7 +260,6 @@ def export_findings():
         'Informational': 4
     }
     
-    # Prepare all findings data before sorting
     findings_data = []
     
     for finding_id in finding_ids:
@@ -133,18 +288,11 @@ def export_findings():
                 'evidence': evidence.get(str_id, '')
             })
     
-    # Sort findings by severity
     findings_data.sort(key=lambda x: severity_order.get(x['severity'], 999))
+    context = {'findings': findings_data}
     
-    # Prepare context with sorted findings
-    context = {
-        'findings': findings_data
-    }
-    
-    # Render template
     doc.render(context)
     
-    # Save to memory buffer
     doc_buffer = io.BytesIO()
     doc.save(doc_buffer)
     doc_buffer.seek(0)
@@ -154,12 +302,9 @@ def export_findings():
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         as_attachment=True,
         download_name='security_findings.docx'
-
     )
 
-
-
+# Main execution
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    init_db()
     app.run(debug=True)
