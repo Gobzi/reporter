@@ -1126,7 +1126,7 @@ async function exportFindings() {
     
     // Prepare export data using userFindings
     const exportData = {
-        findings: userFindings.map(uf => uf.finding_id),
+        findings: userFindings.map(uf => uf.id),
         resources: {},
         evidence: {},
         edited_findings: {}
