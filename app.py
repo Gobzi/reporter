@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from docxtpl import DocxTemplate, RichText
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -75,6 +75,14 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def init_db():
     with app.app_context():
         db.create_all()
@@ -93,11 +101,23 @@ def init_db():
             db.session.commit()
             print("Default admin user created. Please change the password immediately.")
 
-# Routes
+# Routes for Web Pages
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return redirect(url_for('login_page'))
 
+@app.route('/login')
+def login_page():
+    if 'user_id' in session:
+        return redirect(url_for('app_page'))
+    return render_template('login.html')
+
+@app.route('/app')
+@login_required
+def app_page():
+    return render_template('app.html')
+
+# API Routes
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
     if 'user_id' in session:
@@ -200,11 +220,13 @@ def reset_password():
         return jsonify({'error': 'Failed to reset password'}), 500
 
 @app.route('/api/findings', methods=['GET'])
+@login_required
 def get_findings():
     findings = Finding.query.all()
     return jsonify([finding.to_dict() for finding in findings])
 
 @app.route('/api/findings', methods=['POST'])
+@login_required
 def add_finding():
     data = request.json
     new_finding = Finding(
@@ -220,6 +242,7 @@ def add_finding():
     return jsonify(new_finding.to_dict()), 201
 
 @app.route('/api/findings/<int:id>', methods=['PUT'])
+@login_required
 def update_finding(id):
     finding = Finding.query.get_or_404(id)
     data = request.json
@@ -233,6 +256,7 @@ def update_finding(id):
     return jsonify(finding.to_dict())
 
 @app.route('/api/findings/delete', methods=['POST'])
+@login_required
 def delete_findings():
     finding_ids = request.json.get('findings', [])
     Finding.query.filter(Finding.id.in_(finding_ids)).delete(synchronize_session=False)
@@ -240,6 +264,7 @@ def delete_findings():
     return jsonify({'message': 'Findings deleted successfully'}), 200
 
 @app.route('/api/export', methods=['POST'])
+@login_required
 def export_findings():
     data = request.json
     finding_ids = data.get('findings', [])
