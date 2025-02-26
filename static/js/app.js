@@ -422,12 +422,16 @@ function displaySelectedFindings() {
 // Initialization function for CKEditors
 function initializeCKEditors() {
     // Destroy any existing CKEditor instances to prevent memory leaks
-    Object.keys(ClassicEditor.instances || {}).forEach(key => {
-        const editor = ClassicEditor.instances[key];
-        if (editor && editor.destroy) {
-            editor.destroy();
-        }
-    });
+    if (ClassicEditor.instances) {
+        Object.keys(ClassicEditor.instances).forEach(key => {
+            const editor = ClassicEditor.instances[key];
+            if (editor && editor.destroy) {
+                editor.destroy();
+            }
+        });
+    } else {
+        ClassicEditor.instances = {};
+    }
 
     // Initialize CKEditor for each evidence textarea
     userFindings.forEach(userFinding => {
@@ -451,6 +455,9 @@ function initializeCKEditors() {
                         'code', 'codeBlock', '|',
                         'undo', 'redo'
                     ]
+                })
+                .then(editor => {
+                    ClassicEditor.instances[textareaId] = editor;
                 })
                 .catch(error => {
                     console.error('Error creating CKEditor:', error);
@@ -785,6 +792,7 @@ async function saveAdditionalFields(userFindingId) {
     
     if (evidenceEditor) {
         evidence = evidenceEditor.getData();
+        console.log(`CKEditor data for evidence_${userFindingId}:`, evidence);
     } else {
         console.error(`CKEditor instance not found for evidence_${userFindingId}`);
         return;
