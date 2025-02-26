@@ -338,7 +338,21 @@ function displayFindings() {
     });
 }
 
+function cleanupCKEditors() {
+    if (window.ckEditors) {
+        Object.keys(window.ckEditors).forEach(key => {
+            const editor = window.ckEditors[key];
+            if (editor && editor.destroy) {
+                editor.destroy();
+            }
+        });
+        window.ckEditors = {};
+    }
+}
+
+
 function displaySelectedFindings() {
+    cleanupCKEditors();
     const container = document.getElementById('selectedFindings');
     if (!container) return;
     
@@ -420,33 +434,30 @@ function displaySelectedFindings() {
 }
 
 // Initialization function for CKEditors
+// Replace the existing initializeCKEditors function with this
 function initializeCKEditors() {
-    // Destroy any existing CKEditor instances to prevent memory leaks
-    if (ClassicEditor.instances) {
-        Object.keys(ClassicEditor.instances).forEach(key => {
-            const editor = ClassicEditor.instances[key];
-            if (editor && editor.destroy) {
-                editor.destroy();
-            }
-        });
-    } else {
-        ClassicEditor.instances = {};
-    }
+    // Maintain our own instance tracker
+    window.ckEditors = window.ckEditors || {};
 
-    // Initialize CKEditor for each evidence textarea
+    // Destroy existing editors that are no longer in the DOM
+    Object.keys(window.ckEditors).forEach(key => {
+        const editor = window.ckEditors[key];
+        if (editor && editor.element && document.body.contains(editor.element)) {
+            editor.destroy();
+        }
+        delete window.ckEditors[key];
+    });
+
+    // Initialize new editors
     userFindings.forEach(userFinding => {
         const containerId = `evidence_container_${userFinding.id}`;
         const textareaId = `evidence_${userFinding.id}`;
         
-        // Check if the container exists before creating CKEditor
         const container = document.getElementById(containerId);
         if (container) {
-            // Replace textarea with CKEditor
             const textarea = document.getElementById(textareaId);
-            textarea.setAttribute('data-finding-id', userFinding.id);
-            
-            ClassicEditor
-                .create(textarea, {
+            if (textarea) {
+                ClassicEditor.create(textarea, {
                     toolbar: [
                         'heading', '|',
                         'bold', 'italic', 'underline', 'strikethrough', '|',
@@ -455,17 +466,15 @@ function initializeCKEditors() {
                         'code', 'codeBlock', '|',
                         'undo', 'redo'
                     ]
-                })
-                .then(editor => {
-                    ClassicEditor.instances[textareaId] = editor;
-                })
-                .catch(error => {
+                }).then(editor => {
+                    window.ckEditors[textareaId] = editor;
+                }).catch(error => {
                     console.error('Error creating CKEditor:', error);
                 });
+            }
         }
     });
 }
-
 
 
 // Get risk badge color
@@ -786,8 +795,9 @@ async function saveAdditionalFields(userFindingId) {
     const resourcesTextarea = document.getElementById(`resources_${userFindingId}`);
     const resources = resourcesTextarea.value;
 
-    // Get the CKEditor instance for evidence
-    const evidenceEditor = ClassicEditor.instances[`evidence_${userFindingId}`];
+    // Get the CKEditor instance from our custom tracker
+    const editorKey = `evidence_${userFindingId}`;
+    const evidenceEditor = window.ckEditors?.[editorKey];
     let evidence = '';
     
     if (evidenceEditor) {
@@ -795,6 +805,7 @@ async function saveAdditionalFields(userFindingId) {
         console.log(`CKEditor data for evidence_${userFindingId}:`, evidence);
     } else {
         console.error(`CKEditor instance not found for evidence_${userFindingId}`);
+        alert('Editor not loaded properly. Please refresh the page.');
         return;
     }
     
@@ -814,14 +825,17 @@ async function saveAdditionalFields(userFindingId) {
             throw new Error('Failed to save additional fields');
         }
         
-        // Update the user finding object directly
+        // Update the user finding object
         userFinding.resources_affected = resources;
         userFinding.evidence = evidence;
         
+        // Refresh the display
         displaySelectedFindings();
         
         // Show save confirmation
-        const saveButton = document.querySelector(`#resources_${userFindingId}`).closest('.finding-details').querySelector('button');
+        const saveButton = document.querySelector(`#resources_${userFindingId}`)
+            .closest('.finding-details')
+            .querySelector('button');
         const originalText = saveButton.textContent;
         
         saveButton.textContent = 'Saved!';
