@@ -17,6 +17,7 @@ from docx.shared import Inches
 from PIL import Image
 import base64
 import re
+from docx.text.paragraph import Paragraph
 
 
 
@@ -467,74 +468,106 @@ def generate_docx(context, buffer):
 def add_html_to_doc(doc, html):
     """Convert HTML to docx content with proper list handling."""
     soup = BeautifulSoup(html, 'html.parser')
+    list_counter = [0]  # Counter stack for numbered lists
 
-    def process_element(element, parent_paragraph=None, styles=None, list_level=0):
-        if styles is None:
-            styles = {'bold': False, 'italic': False, 'underline': False}
+    def process_element(element, parent=None, list_level=0, list_type=None):
+        nonlocal list_counter
+        
+        if parent is None:
+            parent = doc
 
-        # Text node handling
+        # Handle different element types
+        if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+            level = int(element.name[1])
+            parent.add_heading(element.get_text(), level=level)
+            return parent
+
+        elif element.name == 'p':
+            p = doc.add_paragraph()
+            for child in element.contents:
+                process_element(child, p, list_level, list_type)
+            return p
+
+        elif element.name in ['ul', 'ol']:
+            # Reset counter for new list
+            list_counter = list_counter[:list_level+1] + [0]
+            new_list_type = 'bullet' if element.name == 'ul' else 'number'
+            
+            for child in element.find_all(['li'], recursive=False):
+                process_element(child, parent, list_level + 1, new_list_type)
+            return parent
+
+        elif element.name == 'li':
+            # Create appropriate list style
+            if list_type == 'number':
+                style = 'List Number'
+                list_counter[list_level] += 1
+                number = list_counter[list_level]
+            else:
+                style = 'List Bullet'
+                number = None
+
+            p = doc.add_paragraph(style=style)
+            
+            # Set indentation
+            p.paragraph_format.left_indent = Inches(0.5 * list_level)
+            p.paragraph_format.first_line_indent = Inches(-0.25)
+            
+            # Add list content
+            for child in element.contents:
+                if child.name is None:  # Text node
+                    text = str(child).strip()
+                    if text:
+                        if number and list_level == 0:
+                            p.add_run(f"{number}. ").bold = True
+                        p.add_run(text)
+                else:
+                    process_element(child, p, list_level, list_type)
+            return parent
+
+        elif element.name == 'br':
+            if isinstance(parent, Paragraph):
+                parent.add_run().add_break()
+            return parent
+
+        elif element.name in ['strong', 'b']:
+            run = parent.add_run()
+            run.bold = True
+            run.text = element.get_text()
+            return parent
+
+        elif element.name in ['em', 'i']:
+            run = parent.add_run()
+            run.italic = True
+            run.text = element.get_text()
+            return parent
+
+        elif element.name == 'u':
+            run = parent.add_run()
+            run.underline = True
+            run.text = element.get_text()
+            return parent
+
+        # Handle text content
         if isinstance(element, str):
             text = element.strip()
-            if text and parent_paragraph:
-                run = parent_paragraph.add_run(text)
-                run.bold = styles['bold']
-                run.italic = styles['italic']
-                run.underline = styles['underline']
-            return parent_paragraph
+            if text:
+                if isinstance(parent, Paragraph):
+                    parent.add_run(text)
+                else:
+                    doc.add_paragraph(text)
+            return parent
 
-        # Element handling
-        tag = element.name
-        new_styles = styles.copy()
-
-        # Update formatting
-        if tag in ['b', 'strong']:
-            new_styles['bold'] = True
-        elif tag in ['i', 'em']:
-            new_styles['italic'] = True
-        elif tag == 'u':
-            new_styles['underline'] = True
-
-        # Handle structural elements
-        if tag == 'br':
-            if parent_paragraph:
-                parent_paragraph.add_run().add_break()
-        
-        elif tag in ['ul', 'ol']:
-            list_level += 1
-            for child in element.contents:
-                parent_paragraph = process_element(
-                    child, 
-                    parent_paragraph, 
-                    new_styles, 
-                    list_level
-                )
-            return parent_paragraph
-        
-        elif tag == 'li':
-            # Create list paragraph with proper indentation
-            p = doc.add_paragraph(style='ListBullet' if list_level % 2 else 'ListNumber')
-            p.paragraph_format.left_indent = Inches(0.5 * list_level)
-            for child in element.contents:
-                process_element(child, p, new_styles, list_level)
-            return parent_paragraph  # Maintain parent context
-        
         # Recursively process children
         for child in element.contents:
-            parent_paragraph = process_element(
-                child, 
-                parent_paragraph, 
-                new_styles, 
-                list_level
-            )
+            process_element(child, parent, list_level, list_type)
 
-        return parent_paragraph
+        return parent
 
-    # Start processing from the root
-    current_para = doc.add_paragraph()
+    
     for element in soup.contents:
-        current_para = process_element(element, current_para)
-
-
+        if element != '\n':
+            process_element(element)
 # Main execution
 if __name__ == '__main__':
     init_db()
