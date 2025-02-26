@@ -328,6 +328,7 @@ function displayFindings() {
                 event.target.tagName === 'TEXTAREA' ||
                 event.target.closest('button')
             ) {
+                event.stopPropagation();
                 return;
             }
             
@@ -337,7 +338,6 @@ function displayFindings() {
     });
 }
 
-// Display selected findings
 function displaySelectedFindings() {
     const container = document.getElementById('selectedFindings');
     if (!container) return;
@@ -384,7 +384,9 @@ function displaySelectedFindings() {
                             <div class="detail-label">Resources Affected:</div>
                             <textarea class="form-control mb-3" id="resources_${userFinding.id}" rows="2">${userFinding.resources_affected || ''}</textarea>
                             <div class="detail-label">Evidence and Reproduction Steps:</div>
-                            <textarea class="form-control mb-3" id="evidence_${userFinding.id}" rows="4">${userFinding.evidence || ''}</textarea>
+                            <div id="evidence_container_${userFinding.id}">
+                                <textarea class="form-control mb-3" id="evidence_${userFinding.id}" rows="4">${userFinding.evidence || ''}</textarea>
+                            </div>
                             <button class="btn btn-sm btn-primary mt-2" onclick="saveAdditionalFields(${userFinding.id}); event.stopPropagation();">Save</button>
                         </div>
                     </div>
@@ -400,7 +402,10 @@ function displaySelectedFindings() {
                 event.target.tagName === 'BUTTON' || 
                 event.target.tagName === 'INPUT' || 
                 event.target.tagName === 'TEXTAREA' ||
-                event.target.closest('button')
+                event.target.closest('button') ||
+                event.target.closest('.ck') ||          // CKEditor container
+                event.target.closest('.ck-editor') ||   // CKEditor wrapper
+                event.target.closest('.ck-content')     // CKEditor editable area
             ) {
                 return;
             }
@@ -409,7 +414,52 @@ function displaySelectedFindings() {
             toggleExpand(id);
         });
     });
+
+    // Initialize CKEditors after rendering
+    initializeCKEditors();
 }
+
+// Initialization function for CKEditors
+function initializeCKEditors() {
+    // Destroy any existing CKEditor instances to prevent memory leaks
+    Object.keys(ClassicEditor.instances || {}).forEach(key => {
+        const editor = ClassicEditor.instances[key];
+        if (editor && editor.destroy) {
+            editor.destroy();
+        }
+    });
+
+    // Initialize CKEditor for each evidence textarea
+    userFindings.forEach(userFinding => {
+        const containerId = `evidence_container_${userFinding.id}`;
+        const textareaId = `evidence_${userFinding.id}`;
+        
+        // Check if the container exists before creating CKEditor
+        const container = document.getElementById(containerId);
+        if (container) {
+            // Replace textarea with CKEditor
+            const textarea = document.getElementById(textareaId);
+            textarea.setAttribute('data-finding-id', userFinding.id);
+            
+            ClassicEditor
+                .create(textarea, {
+                    toolbar: [
+                        'heading', '|',
+                        'bold', 'italic', 'underline', 'strikethrough', '|',
+                        'bulletedList', 'numberedList', '|',
+                        'insertTable', 'tableColumn', 'tableRow', 'mergeTableCells', '|',
+                        'code', 'codeBlock', '|',
+                        'undo', 'redo'
+                    ]
+                })
+                .catch(error => {
+                    console.error('Error creating CKEditor:', error);
+                });
+        }
+    });
+}
+
+
 
 // Get risk badge color
 function getRiskBadgeColor(risk) {
@@ -719,7 +769,6 @@ async function saveUserFinding() {
     }
 }
 
-// Save additional fields (Resources Affected and Evidence)
 async function saveAdditionalFields(userFindingId) {
     const userFinding = userFindings.find(uf => uf.id === userFindingId);
     if (!userFinding) {
@@ -727,8 +776,19 @@ async function saveAdditionalFields(userFindingId) {
         return;
     }
     
-    const resources = document.getElementById(`resources_${userFindingId}`).value;
-    const evidence = document.getElementById(`evidence_${userFindingId}`).value;
+    const resourcesTextarea = document.getElementById(`resources_${userFindingId}`);
+    const resources = resourcesTextarea.value;
+
+    // Get the CKEditor instance for evidence
+    const evidenceEditor = ClassicEditor.instances[`evidence_${userFindingId}`];
+    let evidence = '';
+    
+    if (evidenceEditor) {
+        evidence = evidenceEditor.getData();
+    } else {
+        console.error(`CKEditor instance not found for evidence_${userFindingId}`);
+        return;
+    }
     
     try {
         const response = await fetch(`/api/user-findings/${userFindingId}`, {
@@ -746,12 +806,11 @@ async function saveAdditionalFields(userFindingId) {
             throw new Error('Failed to save additional fields');
         }
         
-        // Update local data
-        const updatedFinding = await response.json();
-        const index = userFindings.findIndex(uf => uf.id === userFindingId);
-        if (index !== -1) {
-            userFindings[index] = updatedFinding;
-        }
+        // Update the user finding object directly
+        userFinding.resources_affected = resources;
+        userFinding.evidence = evidence;
+        
+        displaySelectedFindings();
         
         // Show save confirmation
         const saveButton = document.querySelector(`#resources_${userFindingId}`).closest('.finding-details').querySelector('button');
@@ -771,6 +830,7 @@ async function saveAdditionalFields(userFindingId) {
         alert('Failed to save: ' + error.message);
     }
 }
+
 
 // Calculate risk distribution
 function calculateRiskDistribution() {
