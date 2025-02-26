@@ -349,6 +349,7 @@ def update_user_finding(id):
         db.session.rollback()
         return jsonify({'error': 'Failed to update finding'}), 500
 
+
 @app.route('/api/findings/<int:id>', methods=['PUT'])
 @login_required
 def update_finding(id):
@@ -371,7 +372,76 @@ def delete_findings():
     db.session.commit()
     return jsonify({'message': 'Findings deleted successfully'}), 200
 
-# Additional routes (export, verify keywords, reset password) remain the same as in the previous version
+@app.route('/api/export', methods=['POST'])
+@login_required
+def export_findings():
+    data = request.json
+    finding_ids = data.get('findings', [])
+    resources = data.get('resources', {})
+    evidence = data.get('evidence', {})
+    edited_findings = data.get('edited_findings', {})
+
+    # Get findings from the database
+    db_findings = Finding.query.filter(Finding.id.in_(finding_ids)).all()
+    findings_map = {str(f.id): f for f in db_findings}
+    
+    # Ensure template exists
+    try:
+        doc = DocxTemplate('templates/finding_template.docx')
+    except FileNotFoundError:
+        return jsonify({'error': 'Export template not found'}), 404
+    
+    severity_order = {
+        'Critical': 0,
+        'High': 1,
+        'Medium': 2,
+        'Low': 3,
+        'Informational': 4
+    }
+    
+    findings_data = []
+    
+    for finding_id in finding_ids:
+        str_id = str(finding_id)
+        
+        if str_id in edited_findings:
+            finding_data = edited_findings[str_id]
+            findings_data.append({
+                'title': finding_data['title'],
+                'severity': finding_data['risk_rating'],
+                'description': finding_data['description'],
+                'impact': finding_data['impact'],
+                'resolution': finding_data['resolution'],
+                'resources_affected': resources.get(str_id, ''),
+                'evidence': evidence.get(str_id, '')
+            })
+        elif str_id in findings_map:
+            finding = findings_map[str_id]
+            findings_data.append({
+                'title': finding.title,
+                'severity': finding.risk_rating,
+                'description': finding.description,
+                'impact': finding.impact,
+                'resolution': finding.resolution,
+                'resources_affected': resources.get(str_id, ''),
+                'evidence': evidence.get(str_id, '')
+            })
+    
+    findings_data.sort(key=lambda x: severity_order.get(x['severity'], 999))
+    context = {'findings': findings_data}
+    
+    doc.render(context)
+    
+    doc_buffer = io.BytesIO()
+    doc.save(doc_buffer)
+    doc_buffer.seek(0)
+    
+    return send_file(
+        doc_buffer,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        as_attachment=True,
+        download_name='security_findings.docx'
+    )
 
 # Main execution
 if __name__ == '__main__':
