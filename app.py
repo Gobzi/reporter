@@ -1,13 +1,24 @@
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
-from docxtpl import DocxTemplate, RichText
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from functools import wraps
 from secrets import token_urlsafe
 import os
 import io
+from bs4 import BeautifulSoup
+from docx import Document
+from docx.shared import Pt
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+from docx.enum.text import WD_BREAK
+from docx.shared import Inches
+from PIL import Image
+import base64
+import re
+
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -385,12 +396,6 @@ def export_findings():
     db_findings = Finding.query.filter(Finding.id.in_(finding_ids)).all()
     findings_map = {str(f.id): f for f in db_findings}
     
-    # Ensure template exists
-    try:
-        doc = DocxTemplate('templates/finding_template.docx')
-    except FileNotFoundError:
-        return jsonify({'error': 'Export template not found'}), 404
-    
     severity_order = {
         'Critical': 0,
         'High': 1,
@@ -430,11 +435,8 @@ def export_findings():
     findings_data.sort(key=lambda x: severity_order.get(x['severity'], 999))
     context = {'findings': findings_data}
     
-    doc.render(context)
-    
     doc_buffer = io.BytesIO()
-    doc.save(doc_buffer)
-    doc_buffer.seek(0)
+    generate_docx(context, doc_buffer)
     
     return send_file(
         doc_buffer,
@@ -442,6 +444,96 @@ def export_findings():
         as_attachment=True,
         download_name='security_findings.docx'
     )
+
+def generate_docx(context, buffer):
+    """Generate DOCX file from context data."""
+    doc = Document()
+    for finding in context['findings']:
+        doc.add_heading(finding['title'], level=1)
+        doc.add_paragraph(f"Resources Affected: {finding['resources_affected']}")
+        doc.add_paragraph(f"Severity: {finding['severity']}")
+        doc.add_paragraph(f"Description: {finding['description']}")
+        doc.add_paragraph(f"Impact: {finding['impact']}")
+        doc.add_paragraph(f"Recommendations: {finding['resolution']}")
+        doc.add_paragraph("References: ")
+        doc.add_paragraph("Evidence and Reproduction Steps:")
+        add_html_to_doc(doc, finding['evidence'])
+        if finding != context['findings'][-1]:
+            doc.add_page_break()
+    doc.save(buffer)
+    buffer.seek(0)
+
+
+def add_html_to_doc(doc, html):
+    """Convert HTML to docx content with proper list handling."""
+    soup = BeautifulSoup(html, 'html.parser')
+
+    def process_element(element, parent_paragraph=None, styles=None, list_level=0):
+        if styles is None:
+            styles = {'bold': False, 'italic': False, 'underline': False}
+
+        # Text node handling
+        if isinstance(element, str):
+            text = element.strip()
+            if text and parent_paragraph:
+                run = parent_paragraph.add_run(text)
+                run.bold = styles['bold']
+                run.italic = styles['italic']
+                run.underline = styles['underline']
+            return parent_paragraph
+
+        # Element handling
+        tag = element.name
+        new_styles = styles.copy()
+
+        # Update formatting
+        if tag in ['b', 'strong']:
+            new_styles['bold'] = True
+        elif tag in ['i', 'em']:
+            new_styles['italic'] = True
+        elif tag == 'u':
+            new_styles['underline'] = True
+
+        # Handle structural elements
+        if tag == 'br':
+            if parent_paragraph:
+                parent_paragraph.add_run().add_break()
+        
+        elif tag in ['ul', 'ol']:
+            list_level += 1
+            for child in element.contents:
+                parent_paragraph = process_element(
+                    child, 
+                    parent_paragraph, 
+                    new_styles, 
+                    list_level
+                )
+            return parent_paragraph
+        
+        elif tag == 'li':
+            # Create list paragraph with proper indentation
+            p = doc.add_paragraph(style='ListBullet' if list_level % 2 else 'ListNumber')
+            p.paragraph_format.left_indent = Inches(0.5 * list_level)
+            for child in element.contents:
+                process_element(child, p, new_styles, list_level)
+            return parent_paragraph  # Maintain parent context
+        
+        # Recursively process children
+        for child in element.contents:
+            parent_paragraph = process_element(
+                child, 
+                parent_paragraph, 
+                new_styles, 
+                list_level
+            )
+
+        return parent_paragraph
+
+    # Start processing from the root
+    current_para = doc.add_paragraph()
+    for element in soup.contents:
+        current_para = process_element(element, current_para)
+
 
 # Main execution
 if __name__ == '__main__':
